@@ -90,3 +90,28 @@ Uso: Cómo utilizar `Option` y `flatMap` para descartar conversiones numéricas 
 Código afectado: `SafeParse.scala` y `Queries.scala`.
 
 Verificación: Comprobamos que solo se utilizaban las duraciones convertidas correctamente.
+
+## Consulta 8
+
+Fecha: 8/11/2026
+
+Herramienta: Claude
+
+Uso: Duda sobre cómo aplicar la política de ingresos de la Fase 3 dentro del nuevo parser, asegurando que si costEur no es interpretable, se asigne 0.0 en lugar de descartar el viaje.
+
+Código afectado: `Parsers.scala`.
+
+Verificación: Se validó que el método getOrElse(0.0) permitía construir el Trip correctamente manteniendo el número total de registros completados.
+
+
+## Consulta 9
+
+Fecha: 6/11/2026
+
+Herramienta: Claude
+
+Uso: Comprensión de la signatura paramétrica [A, K] y el uso de funciones de orden superior (key: A => K) para generalizar los algoritmos de recuento y ranking.
+
+Código afectado: `Queries.scala` y `GenericQueries.scala`.
+
+Verificación: Comprobamos que el algoritmo de topNBy servía tanto para tipados complejos (Trip) como para colecciones simples (String), reutilizando frequencyBy sin duplicar código.
