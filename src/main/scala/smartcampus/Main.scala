@@ -2,142 +2,110 @@ package smartcampus
 
 object Main {
 
-  // Ejecutamos desde aqui la carga de datos, las consultas, las pruebas y la presentacion de resultados.
   def main(args: Array[String]): Unit = {
 
-    // Cargamos las filas del fichero una sola vez y dejamos las consultas en el objeto Queries.
-    val rows: List[Queries.Row] = Csv.readRows("datos/trips.csv")
+    // --- PRUEBAS CON ASSERT (Paso 9) ---
 
-    // Llamamos a las distintas consultas y guardamos sus resultados antes de mostrarlos.
-    val completedRows = Queries.completed(rows)
-    val tripsByVehicle = Queries.tripsByVehicle(rows)
-    val averageDurationByUser = Queries.averageDurationByUser(rows)
-    val topOrigins = Queries.topOrigins(rows, 3)
-    val topDestinations = Queries.topDestinations(rows, 3)
-    val revenueByDay = Queries.revenueByDay(rows)
-    val mostFrequentRoute = Queries.mostFrequentRoute(rows)
-    val busiestTimeBand = Queries.busiestTimeBand(rows)
-    val revenueAndCount = Queries.revenueAndCount(rows)
+    // 1. Asserts de Parsers
+    val validRow = List("T1", "2026-10-01T08:00:00", "S01", "S02", "10", "1.0", "student", "bike", "2.0", "completed", "ok")
+    val invalidLengthRow = List("T1", "2026-10-01T08:00:00")
+    val invalidDurationRow = List("T1", "2026-10-01T08:00:00", "S01", "S02", "invalido", "1.0", "student", "bike", "2.0", "completed", "ok")
 
-    // Creamos una coleccion pequena para comprobar las consultas sin depender del CSV completo.
-    val testRows: List[Queries.Row] = List(
-      List("T1", "2026-10-01T08:00:00", "S01", "S02", "10", "1.0", "student", "bike", "2.0", "completed", "ok"),
-      List("T2", "2026-10-01T14:00:00", "S01", "S03", "20", "2.0", "student", "bike", "3.0", "completed", "ok"),
-      List("T3", "2026-10-01T19:00:00", "S03", "S01", "15", "1.5", "subscriber", "scooter", "1.5", "cancelled", "ok"),
-      List("T4", "2026-10-02T18:00:00", "S02", "S01", "30", "3.0", "subscriber", "ebike", "4.0", "completed", "ok")
+    assert(Parsers.trip(validRow).isDefined)
+    assert(Parsers.trip(invalidLengthRow).isEmpty)
+    assert(Parsers.trip(invalidDurationRow).isEmpty)
+
+    // 2. Asserts de GenericQueries sobre colecciones genéricas (ejemplo con Strings)
+    val testWords = List("sol", "luna", "casa", "mar")
+    assert(GenericQueries.frequencyBy(testWords)(_.length) == Map(3 -> 2, 4 -> 2))
+    assert(GenericQueries.topNBy(testWords, 1)(_.length) == List((3, 2)))
+
+    // 3. Colección pequeña de objetos Trip de prueba (2 completados, 1 cancelado)
+    val testTrips: List[Trip] = List(
+      Trip("T1", "2026-10-01T08:00:00", "S01", "S02", 10, "1.0", "student", "bike", 2.0, "completed", "ok"),
+      Trip("T2", "2026-10-01T14:00:00", "S01", "S03", 20, "2.0", "student", "bike", 3.0, "completed", "ok"),
+      Trip("T3", "2026-10-01T19:00:00", "S03", "S01", 15, "1.5", "subscriber", "scooter", 1.5, "cancelled", "ok")
     )
 
-    // Comprobamos completed con los datos pequenos de prueba.
-    assert(Queries.completed(testRows).size == 3)
+    assert(Queries.completed(testTrips).size == 2)
+    assert(Queries.tripsByVehicle(testTrips) == Map("bike" -> 2))
+    assert(Queries.topOrigins(testTrips, 1) == List(("S01", 2)))
+    assert(Queries.revenueAndCount(testTrips) == (5.0, 2))
 
-    // Comprobamos una consulta por tipo de vehiculo.
-    assert(Queries.tripsByVehicle(testRows) == Map("bike" -> 2, "ebike" -> 1))
+    // --- CARGA DE DATOS REALES (Pasos 4 y 8) ---
 
-    // Comprobamos un ranking de estaciones de origen.
-    assert(Queries.topOrigins(testRows, 1) == List(("S01", 2)))
+    val trips: List[Trip] = Csv.readRows("datos/trips.csv").flatMap(Parsers.trip)
+    val stations: List[Station] = Csv.readRows("datos/stations.csv").flatMap(Parsers.station)
+    val stationById: Map[String, Station] = stations.map(s => s.id -> s).toMap
 
-    // Comprobamos que foldLeft acumula correctamente ingresos y numero de viajes completados.
-    assert(Queries.revenueAndCount(testRows) == (9.0, 3))
+    // Llamamos a las consultas con la lista de objetos Trip
+    val completedTrips = Queries.completed(trips)
+    val tripsByVehicle = Queries.tripsByVehicle(trips)
+    val averageDurationByUser = Queries.averageDurationByUser(trips)
+    val topOrigins = Queries.topOrigins(trips, 3)
+    val topDestinations = Queries.topDestinations(trips, 3)
+    val revenueByDay = Queries.revenueByDay(trips)
+    val mostFrequentRoute = Queries.mostFrequentRoute(trips)
+    val busiestTimeBand = Queries.busiestTimeBand(trips)
+    val revenueAndCount = Queries.revenueAndCount(trips)
 
-    // Mostramos el numero total de viajes que tienen estado completed.
-    println("Numero de viajes completados: " + completedRows.size)
+    // --- PRESENTACIÓN DE RESULTADOS ---
 
-    // Mostramos cuantos viajes completados corresponden a cada tipo de vehiculo.
+    println("Numero de viajes completados: " + completedTrips.size)
+
     println("\nViajes completados por tipo de vehiculo:")
-
-    // Ordenamos los tipos de vehiculo por su nombre y recorremos el resultado para mostrarlo.
     tripsByVehicle.toList.sortBy(_._1).foreach {
       case (vehicleType, count) =>
         println(vehicleType + ": " + count)
     }
 
-    // Mostramos la duracion media calculada para cada tipo de usuario.
     println("\nDuracion media por tipo de usuario:")
-
-    // Ordenamos los tipos de usuario por su nombre y mostramos la media de cada uno.
     averageDurationByUser.toList.sortBy(_._1).foreach {
       case (userType, average) =>
         println(userType + ": " + average)
     }
 
-    // Mostramos las tres estaciones de origen con mayor numero de viajes.
+    // Mostramos ranking de origen indicando el nombre traducido mediante stationById (Paso 8)
     println("\nTop 3 estaciones de origen:")
-
-    // Recorremos el ranking de origenes y mostramos cada estacion junto con su numero de viajes.
     topOrigins.foreach {
-      case (station, count) =>
-        println(station + ": " + count)
+      case (stationId, count) =>
+        val name = stationById.get(stationId).map(_.name).getOrElse("desconocida")
+        println(s"$stationId ($name): $count")
     }
 
-    // Mostramos las tres estaciones de destino con mayor numero de viajes.
+    // Mostramos ranking de destino indicando el nombre traducido mediante stationById (Paso 8)
     println("\nTop 3 estaciones de destino:")
-
-    // Recorremos el ranking de destinos y mostramos cada estacion junto con su numero de viajes.
     topDestinations.foreach {
-      case (station, count) =>
-        println(station + ": " + count)
+      case (stationId, count) =>
+        val name = stationById.get(stationId).map(_.name).getOrElse("desconocida")
+        println(s"$stationId ($name): $count")
     }
 
-    // Mostramos los ingresos obtenidos en cada dia.
     println("\nIngresos por dia:")
-
-    // Ordenamos los dias por fecha y mostramos los ingresos correspondientes a cada uno.
     revenueByDay.toList.sortBy(_._1).foreach {
       case (date, revenue) =>
         println(date + ": " + revenue)
     }
 
-    // Comprobamos si existe una ruta mas frecuente antes de mostrar su resultado.
     mostFrequentRoute match {
-
-      // Si existe una ruta, mostramos su origen, destino y numero de viajes.
       case Some(((origin, destination), count)) =>
-        println(
-          "\nRuta mas frecuente: " +
-            origin +
-            " -> " +
-            destination +
-            " (" +
-            count +
-            " viajes)"
-        )
-
-      // Si no existe ninguna ruta, mostramos un mensaje indicandolo.
+        val originName = stationById.get(origin).map(_.name).getOrElse(origin)
+        val destName = stationById.get(destination).map(_.name).getOrElse(destination)
+        println(s"\nRuta mas frecuente: $origin ($originName) -> $destination ($destName) ($count viajes)")
       case None =>
         println("\nNo hay una ruta mas frecuente.")
     }
 
-    // Comprobamos si existe una franja horaria con viajes antes de mostrar el resultado.
     busiestTimeBand match {
-
-      // Si existe, mostramos el nombre de la franja y su numero de viajes.
       case Some((band, count)) =>
-        println(
-          "Franja horaria con mas viajes: " +
-            band +
-            " (" +
-            count +
-            " viajes)"
-        )
-
-      // Si no existe ninguna franja con viajes, mostramos un mensaje indicandolo.
+        println(s"Franja horaria con mas viajes: $band ($count viajes)")
       case None =>
         println("No hay una franja horaria con viajes.")
     }
 
-    // Mostramos los ingresos totales acumulados con foldLeft.
-    println(
-      "Ingresos totales de viajes completados: " +
-        revenueAndCount._1
-    )
+    println("Ingresos totales de viajes completados: " + revenueAndCount._1)
+    println("Numero de viajes completados contado con foldLeft: " + revenueAndCount._2)
 
-    // Mostramos el numero total de viajes completados acumulado con foldLeft.
-    println(
-      "Numero de viajes completados contado con foldLeft: " +
-        revenueAndCount._2
-    )
-
-    // Indicamos que todas las comprobaciones anteriores se han realizado correctamente.
     println("\nTodos los assert se han superado correctamente.")
   }
 }
