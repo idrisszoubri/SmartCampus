@@ -4,20 +4,21 @@ object Main {
 
   def main(args: Array[String]): Unit = {
 
-    // --- PRUEBAS CON ASSERT (Paso 9) ---
 
     // 1. Asserts de Parsers
     val validRow = List("T1", "2026-10-01T08:00:00", "S01", "S02", "10", "1.0", "student", "bike", "2.0", "completed", "ok")
     val invalidLengthRow = List("T1", "2026-10-01T08:00:00")
     val invalidDurationRow = List("T1", "2026-10-01T08:00:00", "S01", "S02", "invalido", "1.0", "student", "bike", "2.0", "completed", "ok")
+    val invalidCostRow = List("T1", "2026-10-01T08:00:00", "S01", "S02", "10", "1.0", "student", "bike", "invalido", "completed", "ok")
 
     assert(Parsers.trip(validRow).isDefined)
     assert(Parsers.trip(invalidLengthRow).isEmpty)
     assert(Parsers.trip(invalidDurationRow).isEmpty)
+    assert(Parsers.trip(invalidCostRow).exists(_.costEur == 0.0))
 
     // 2. Asserts de GenericQueries sobre colecciones genéricas (ejemplo con Strings)
-    val testWords = List("sol", "luna", "casa", "mar")
-    assert(GenericQueries.frequencyBy(testWords)(_.length) == Map(3 -> 2, 4 -> 2))
+    val testWords = List("sol", "mar", "casa", "perro")
+    assert(GenericQueries.frequencyBy(testWords)(_.length) == Map(3 -> 2, 4 -> 1, 5 -> 1))
     assert(GenericQueries.topNBy(testWords, 1)(_.length) == List((3, 2)))
 
     // 3. Colección pequeña de objetos Trip de prueba (2 completados, 1 cancelado)
@@ -27,12 +28,12 @@ object Main {
       Trip("T3", "2026-10-01T19:00:00", "S03", "S01", 15, "1.5", "subscriber", "scooter", 1.5, "cancelled", "ok")
     )
 
+// 4. Asserts de Queries sobre la colección de prueba
     assert(Queries.completed(testTrips).size == 2)
     assert(Queries.tripsByVehicle(testTrips) == Map("bike" -> 2))
     assert(Queries.topOrigins(testTrips, 1) == List(("S01", 2)))
     assert(Queries.revenueAndCount(testTrips) == (5.0, 2))
 
-    // --- CARGA DE DATOS REALES (Pasos 4 y 8) ---
 
     val trips: List[Trip] = Csv.readRows("datos/trips.csv").flatMap(Parsers.trip)
     val stations: List[Station] = Csv.readRows("datos/stations.csv").flatMap(Parsers.station)
@@ -49,16 +50,17 @@ object Main {
     val busiestTimeBand = Queries.busiestTimeBand(trips)
     val revenueAndCount = Queries.revenueAndCount(trips)
 
-    // --- PRESENTACIÓN DE RESULTADOS ---
-
+    // Mostramos el numero de viajes completados
     println("Numero de viajes completados: " + completedTrips.size)
 
+    // Mostramos el ranking de viajes completados por tipo de vehiculo
     println("\nViajes completados por tipo de vehiculo:")
     tripsByVehicle.toList.sortBy(_._1).foreach {
       case (vehicleType, count) =>
         println(vehicleType + ": " + count)
     }
 
+    // Mostramos la duracion media por tipo de usuario
     println("\nDuracion media por tipo de usuario:")
     averageDurationByUser.toList.sortBy(_._1).foreach {
       case (userType, average) =>
@@ -81,12 +83,14 @@ object Main {
         println(s"$stationId ($name): $count")
     }
 
+    // Mostramos los ingresos por dia ordenados por fecha
     println("\nIngresos por dia:")
     revenueByDay.toList.sortBy(_._1).foreach {
       case (date, revenue) =>
         println(date + ": " + revenue)
     }
 
+    // Mostramos la ruta origen-destino mas frecuente indicando el nombre traducido mediante stationById 
     mostFrequentRoute match {
       case Some(((origin, destination), count)) =>
         val originName = stationById.get(origin).map(_.name).getOrElse(origin)
@@ -96,6 +100,7 @@ object Main {
         println("\nNo hay una ruta mas frecuente.")
     }
 
+    // Mostramos la franja horaria con mas viajes
     busiestTimeBand match {
       case Some((band, count)) =>
         println(s"Franja horaria con mas viajes: $band ($count viajes)")
@@ -103,9 +108,11 @@ object Main {
         println("No hay una franja horaria con viajes.")
     }
 
+    // Mostramos los ingresos totales y el numero de viajes completados usando foldLeft
     println("Ingresos totales de viajes completados: " + revenueAndCount._1)
     println("Numero de viajes completados contado con foldLeft: " + revenueAndCount._2)
 
+    // Finalizamos mostrando un mensaje indicando que todos los asserts se han superado correctamente.
     println("\nTodos los assert se han superado correctamente.")
   }
 }

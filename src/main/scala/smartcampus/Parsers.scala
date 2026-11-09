@@ -25,7 +25,7 @@ object Parsers {
   // Convierte una fila de stations.csv en un objeto Station
   def station(row: List[String]): Option[Station] = {
     // Comprueba primero el número de campos
-    if (row.length < 5) None
+    if (row.length != 5) None
     else {
       // Usamos for/yield para encadenar conversiones obligatorias
       for {
@@ -44,7 +44,7 @@ object Parsers {
   // Conoce las posiciones de trips.csv y construye un Trip
   def trip(row: List[String]): Option[Trip] = {
     // Comprueba primero el número de campos
-    if (row.length < 11) None
+    if (row.length != 11) None
     else {
       // durationMin es una conversión obligatoria
       for {
