@@ -4,115 +4,138 @@ object Main {
 
   def main(args: Array[String]): Unit = {
 
+    // Creamos filas pequenas para comprobar los nuevos casos del parser.
+    val rowDistance =
+      List("T1", "2026-10-01T08:00:00", "S01", "S02", "10", "1.5", "student", "bike", "2.0", "completed", "ok")
 
-    // 1. Asserts de Parsers
-    val validRow = List("T1", "2026-10-01T08:00:00", "S01", "S02", "10", "1.0", "student", "bike", "2.0", "completed", "ok")
-    val invalidLengthRow = List("T1", "2026-10-01T08:00:00")
-    val invalidDurationRow = List("T1", "2026-10-01T08:00:00", "S01", "S02", "invalido", "1.0", "student", "bike", "2.0", "completed", "ok")
-    val invalidCostRow = List("T1", "2026-10-01T08:00:00", "S01", "S02", "10", "1.0", "student", "bike", "invalido", "completed", "ok")
+    val rowWithoutDistance =
+      List("T2", "2026-10-01T09:00:00", "S01", "S03", "12", "", "student", "bike", "3.0", "completed", "ok")
 
-    assert(Parsers.trip(validRow).isDefined)
-    assert(Parsers.trip(invalidLengthRow).isEmpty)
-    assert(Parsers.trip(invalidDurationRow).isEmpty)
-    assert(Parsers.trip(invalidCostRow).exists(_.costEur == 0.0))
+    val rowInvalidDistance =
+      List("T3", "2026-10-01T10:00:00", "S02", "S03", "15", "abc", "student", "bike", "3.0", "completed", "ok")
 
-    // 2. Asserts de GenericQueries sobre colecciones genéricas (ejemplo con Strings)
-    val testWords = List("sol", "mar", "casa", "perro")
-    assert(GenericQueries.frequencyBy(testWords)(_.length) == Map(3 -> 2, 4 -> 1, 5 -> 1))
-    assert(GenericQueries.topNBy(testWords, 1)(_.length) == List((3, 2)))
+    // Comprobamos los tres casos de distance_km.
+    assert(Parsers.trip(rowDistance).exists(_.distanceKm.contains(1.5)))
+    assert(Parsers.trip(rowWithoutDistance).exists(_.distanceKm.isEmpty))
+    assert(Parsers.trip(rowInvalidDistance).isEmpty)
 
-    // 3. Colección pequeña de objetos Trip de prueba (2 completados, 1 cancelado)
-    val testTrips: List[Trip] = List(
-      Trip("T1", "2026-10-01T08:00:00", "S01", "S02", 10, "1.0", "student", "bike", 2.0, "completed", "ok"),
-      Trip("T2", "2026-10-01T14:00:00", "S01", "S03", 20, "2.0", "student", "bike", 3.0, "completed", "ok"),
-      Trip("T3", "2026-10-01T19:00:00", "S03", "S01", 15, "1.5", "subscriber", "scooter", 1.5, "cancelled", "ok")
+    // Comprobamos que el parser meteorologico tambien funciona.
+    val weatherRow = List("2026-10-01", "15.0", "2.0", "10.0")
+    assert(Parsers.weather(weatherRow).isDefined)
+
+    // Creamos viajes pequenos con distancia conocida y desconocida.
+    val testTrips = List(
+      Trip("T1", "2026-10-01T08:00:00", "S01", "S02", 10, Some(1.0), "student", "bike", 2.0, "completed", "ok"),
+      Trip("T2", "2026-10-01T14:00:00", "S01", "S03", 20, None, "student", "bike", 3.0, "completed", "ok"),
+      Trip("T3", "2026-10-02T18:00:00", "S02", "S01", 30, Some(3.0), "subscriber", "ebike", 4.0, "completed", "ok"),
+      Trip("T4", "2026-10-02T19:00:00", "S03", "S01", 15, Some(10.0), "subscriber", "scooter", 1.5, "cancelled", "ok")
     )
 
-// 4. Asserts de Queries sobre la colección de prueba
-    assert(Queries.completed(testTrips).size == 2)
-    assert(Queries.tripsByVehicle(testTrips) == Map("bike" -> 2))
-    assert(Queries.topOrigins(testTrips, 1) == List(("S01", 2)))
-    assert(Queries.revenueAndCount(testTrips) == (5.0, 2))
+    // Comprobamos que una distancia ausente no elimina el viaje ni entra en la media.
+    assert(Queries.completed(testTrips).size == 3)
+    assert(Queries.averageKnownDistance(testTrips).contains(2.0))
 
+    // Mantenemos una consulta de F4 para comprobar continuidad.
+    assert(
+      Queries.tripsByVehicle(testTrips) ==
+        Map("bike" -> 2, "ebike" -> 1)
+    )
 
-    val trips: List[Trip] = Csv.readRows("datos/trips.csv").flatMap(Parsers.trip)
-    val stations: List[Station] = Csv.readRows("datos/stations.csv").flatMap(Parsers.station)
-    val stationById: Map[String, Station] = stations.map(s => s.id -> s).toMap
+    // Creamos datos meteorologicos pequenos para probar la relacion por fecha.
+    val testWeather = List(
+      Weather("2026-10-01", 15.0, 2.0, 10.0),
+      Weather("2026-10-02", 16.0, 0.0, 8.0),
+      Weather("2026-10-03", 14.0, 5.0, 12.0),
+      Weather("2026-10-04", 13.0, 0.0, 9.0)
+    )
 
-    // Llamamos a las consultas con la lista de objetos Trip
-    val completedTrips = Queries.completed(trips)
-    val tripsByVehicle = Queries.tripsByVehicle(trips)
-    val averageDurationByUser = Queries.averageDurationByUser(trips)
-    val topOrigins = Queries.topOrigins(trips, 3)
-    val topDestinations = Queries.topDestinations(trips, 3)
-    val revenueByDay = Queries.revenueByDay(trips)
-    val mostFrequentRoute = Queries.mostFrequentRoute(trips)
-    val busiestTimeBand = Queries.busiestTimeBand(trips)
-    val revenueAndCount = Queries.revenueAndCount(trips)
+    assert(
+      Queries.averageTripsByRainClass(testTrips, testWeather) ==
+        Map("rainy" -> 1.0, "dry" -> 0.5)
+    )
 
-    // Mostramos el numero de viajes completados
-    println("Numero de viajes completados: " + completedTrips.size)
+    assert(
+      Queries.vehiclesOnRainyDays(testTrips, testWeather) ==
+        Map("bike" -> 2)
+    )
 
-    // Mostramos el ranking de viajes completados por tipo de vehiculo
-    println("\nViajes completados por tipo de vehiculo:")
-    tripsByVehicle.toList.sortBy(_._1).foreach {
-      case (vehicleType, count) =>
-        println(vehicleType + ": " + count)
-    }
+    // Mantenemos tambien una prueba de GenericQueries de F4.
+    val words = List("sol", "mar", "casa", "perro")
 
-    // Mostramos la duracion media por tipo de usuario
-    println("\nDuracion media por tipo de usuario:")
-    averageDurationByUser.toList.sortBy(_._1).foreach {
-      case (userType, average) =>
-        println(userType + ": " + average)
-    }
+    assert(
+      GenericQueries.frequencyBy(words)(_.length) ==
+        Map(3 -> 2, 4 -> 1, 5 -> 1)
+    )
 
-    // Mostramos ranking de origen indicando el nombre traducido mediante stationById (Paso 8)
+    // Cargamos los datos reales.
+    val trips =
+      Csv.readRows("datos/trips.csv").flatMap(Parsers.trip)
+
+    val stations =
+      Csv.readRows("datos/stations.csv").flatMap(Parsers.station)
+
+    val weather =
+      Csv.readRows("datos/weather.csv").flatMap(Parsers.weather)
+
+    // Mantenemos stationById de la fase anterior.
+    val stationById =
+      stations.map(s => s.id -> s).toMap
+
+    // Mostramos una consulta heredada de F4.
+    println("Numero de viajes completados: " + Queries.completed(trips).size)
+
     println("\nTop 3 estaciones de origen:")
-    topOrigins.foreach {
-      case (stationId, count) =>
-        val name = stationById.get(stationId).map(_.name).getOrElse("desconocida")
-        println(s"$stationId ($name): $count")
+
+// Mostramos las tres estaciones de origen con mas viajes completados.
+    Queries.topOrigins(trips, 3).foreach {
+      case (id, count) =>
+        val name = stationById.get(id).map(_.name).getOrElse("desconocida")
+        println(s"$id ($name): $count")
     }
 
-    // Mostramos ranking de destino indicando el nombre traducido mediante stationById (Paso 8)
-    println("\nTop 3 estaciones de destino:")
-    topDestinations.foreach {
-      case (stationId, count) =>
-        val name = stationById.get(stationId).map(_.name).getOrElse("desconocida")
-        println(s"$stationId ($name): $count")
-    }
+    // Mostramos la distancia media conocida de los viajes.
+    Queries.averageKnownDistance(trips) match {
+      case Some(distance) =>
+        println("\nDistancia media conocida: " + distance + " km")
 
-    // Mostramos los ingresos por dia ordenados por fecha
-    println("\nIngresos por dia:")
-    revenueByDay.toList.sortBy(_._1).foreach {
-      case (date, revenue) =>
-        println(date + ": " + revenue)
-    }
-
-    // Mostramos la ruta origen-destino mas frecuente indicando el nombre traducido mediante stationById 
-    mostFrequentRoute match {
-      case Some(((origin, destination), count)) =>
-        val originName = stationById.get(origin).map(_.name).getOrElse(origin)
-        val destName = stationById.get(destination).map(_.name).getOrElse(destination)
-        println(s"\nRuta mas frecuente: $origin ($originName) -> $destination ($destName) ($count viajes)")
       case None =>
-        println("\nNo hay una ruta mas frecuente.")
+        println("\nNo hay distancias conocidas.")
     }
 
-    // Mostramos la franja horaria con mas viajes
-    busiestTimeBand match {
-      case Some((band, count)) =>
-        println(s"Franja horaria con mas viajes: $band ($count viajes)")
-      case None =>
-        println("No hay una franja horaria con viajes.")
-    }
+    println("\nMedia de viajes por clase de lluvia:")
 
-    // Mostramos los ingresos totales y el numero de viajes completados usando foldLeft
-    println("Ingresos totales de viajes completados: " + revenueAndCount._1)
-    println("Numero de viajes completados contado con foldLeft: " + revenueAndCount._2)
+    // Mostramos la media de viajes por clase de lluvia ordenada alfabeticamente.
+    Queries
+      .averageTripsByRainClass(trips, weather)
+      .toList
+      .sortBy(_._1)
+      .foreach {
+        case (rainClass, average) =>
+          println(rainClass + ": " + average)
+      }
 
-    // Finalizamos mostrando un mensaje indicando que todos los asserts se han superado correctamente.
+    println("\nVehiculos en dias lluviosos:")
+
+    // Mostramos los vehiculos en dias lluviosos ordenados alfabeticamente.
+    Queries
+      .vehiclesOnRainyDays(trips, weather)
+      .toList
+      .sortBy(_._1)
+      .foreach {
+        case (vehicle, count) =>
+          println(vehicle + ": " + count)
+      }
+
+    println("\nTop 3 dias con mas lluvia:")
+
+    // Mostramos los dias con mas lluvia junto con sus viajes completados.
+    Queries
+      .rainiestDaysWithTrips(trips, weather, 3)
+      .foreach {
+        case (day, count) =>
+          println(day.date + ": " + day.rainMm + " mm -> " + count + " viajes")
+      }
+
     println("\nTodos los assert se han superado correctamente.")
   }
 }

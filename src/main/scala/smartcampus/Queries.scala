@@ -2,73 +2,67 @@ package smartcampus
 
 object Queries {
 
-  // Nos quedamos solamente con los viajes que tienen estado completed.
+  // Nos quedamos con los viajes completados.
   def completed(trips: List[Trip]): List[Trip] = {
-    trips.filter(t => t.status == "completed")
+    trips.filter(_.status == "completed")
   }
 
-  // Agrupamos los viajes completados por tipo de vehiculo reutilizando GenericQueries.
+  // Contamos los viajes completados por tipo de vehiculo.
   def tripsByVehicle(trips: List[Trip]): Map[String, Int] = {
     GenericQueries.frequencyBy(completed(trips))(_.vehicleType)
   }
 
-  // Agrupamos los viajes completados por tipo de usuario y calculamos su duracion media.
+  // Calculamos la duracion media por tipo de usuario.
   def averageDurationByUser(trips: List[Trip]): Map[String, Double] = {
-    val completedTrips = completed(trips)
 
-    val grouped: Map[String, List[Trip]] = completedTrips.groupBy(_.userType)
-
-    grouped.map {
+    completed(trips).groupBy(_.userType).map {
       case (userType, userTrips) =>
-        // durationMin ya es Int en Trip, no necesitamos SafeParse
-        val durations: List[Int] = userTrips.map(_.durationMin)
-
-        val average =
-          if (durations.nonEmpty) durations.sum.toDouble / durations.size
-          else 0.0
-
-        userType -> average
+        val durations = userTrips.map(_.durationMin)
+        userType -> (durations.sum.toDouble / durations.size)
     }
   }
 
-  // Reutiliza el algoritmo genérico de topNBy pasándole la función selectora key: Trip => String.
-  private def topBy(trips: List[Trip], n: Int)(key: Trip => String): List[(String, Int)] = {
+  // Reutilizamos el ranking generico indicando la propiedad que queremos usar.
+  private def topBy(
+      trips: List[Trip],
+      n: Int
+  )(key: Trip => String): List[(String, Int)] = {
+
     GenericQueries.topNBy(trips, n)(key)
   }
 
-  // Obtenemos las estaciones de origen mas frecuentes usando la función selectora _.origin.
+  // Obtenemos los origenes mas frecuentes.
   def topOrigins(trips: List[Trip], n: Int): List[(String, Int)] = {
     topBy(trips, n)(_.origin)
   }
 
-  // Obtenemos las estaciones de destino mas frecuentes usando la función selectora _.destination.
+  // Obtenemos los destinos mas frecuentes.
   def topDestinations(trips: List[Trip], n: Int): List[(String, Int)] = {
     topBy(trips, n)(_.destination)
   }
 
-  // Agrupamos los viajes completados por dia y sumamos sus ingresos.
+  // Calculamos los ingresos de los viajes completados por dia.
   def revenueByDay(trips: List[Trip]): Map[String, Double] = {
-    val completedTrips = completed(trips)
 
-    val grouped: Map[String, List[Trip]] = completedTrips.groupBy { t =>
-      t.startTime.take(10)
-    }
-
-    grouped.map {
+    completed(trips).groupBy(_.date).map {
       case (date, dayTrips) =>
-        // costEur ya es Double en Trip
-        val revenue = dayTrips.map(_.costEur).sum
-        date -> revenue
+        date -> dayTrips.map(_.costEur).sum
     }
   }
 
-  // Buscamos la ruta origen-destino que mas veces aparece entre los viajes completados.
-  def mostFrequentRoute(trips: List[Trip]): Option[((String, String), Int)] = {
-    GenericQueries.topNBy(completed(trips), 1)(t => (t.origin, t.destination)).headOption
+  // Buscamos la ruta mas frecuente.
+  def mostFrequentRoute(
+      trips: List[Trip]
+  ): Option[((String, String), Int)] = {
+
+    GenericQueries
+      .topNBy(completed(trips), 1)(t => (t.origin, t.destination))
+      .headOption
   }
 
-  // Clasificamos la hora de inicio de un viaje en una franja horaria.
+  // Clasificamos una hora en su franja horaria.
   def timeBand(startTime: String): String = {
+
     val hour = startTime.slice(11, 13).toInt
 
     if (hour >= 6 && hour < 12) "morning"
@@ -77,16 +71,85 @@ object Queries {
     else "night"
   }
 
-  // Buscamos la franja horaria con mas viajes completados.
+  // Buscamos la franja horaria con mas viajes.
   def busiestTimeBand(trips: List[Trip]): Option[(String, Int)] = {
-    GenericQueries.topNBy(completed(trips), 1)(t => timeBand(t.startTime)).headOption
+
+    GenericQueries
+      .topNBy(completed(trips), 1)(t => timeBand(t.startTime))
+      .headOption
   }
 
-  // Recorremos los viajes completados acumulando a la vez los ingresos y el numero de viajes.
+  // Calculamos ingresos y numero de viajes completados con foldLeft.
   def revenueAndCount(trips: List[Trip]): (Double, Int) = {
+
     completed(trips).foldLeft((0.0, 0)) {
       case ((revenue, count), trip) =>
         (revenue + trip.costEur, count + 1)
     }
+  }
+
+  // Calculamos la media usando solamente las distancias conocidas.
+  def averageKnownDistance(trips: List[Trip]): Option[Double] = {
+
+    val distances = completed(trips).flatMap(_.distanceKm)
+
+    if (distances.isEmpty) None
+    else Some(distances.sum / distances.size)
+  }
+
+  // Contamos los viajes completados de cada fecha.
+  def completedTripsByDay(trips: List[Trip]): Map[String, Int] = {
+    GenericQueries.frequencyBy(completed(trips))(_.date)
+  }
+
+  // Calculamos la media de viajes de los dias lluviosos y secos.
+  def averageTripsByRainClass(
+      trips: List[Trip],
+      weather: List[Weather]
+  ): Map[String, Double] = {
+
+    val tripsByDay = completedTripsByDay(trips)
+
+    weather
+      .map { day =>
+        val rainClass = if (day.rainMm >= 1.0) "rainy" else "dry"
+        val count = tripsByDay.getOrElse(day.date, 0)
+        (rainClass, count)
+      }
+      .groupBy(_._1)
+      .map {
+        case (rainClass, days) =>
+          rainClass -> (days.map(_._2).sum.toDouble / days.size)
+      }
+  }
+
+  // Contamos los vehiculos utilizados en dias lluviosos.
+  def vehiclesOnRainyDays(
+      trips: List[Trip],
+      weather: List[Weather]
+  ): Map[String, Int] = {
+
+    val rainyDates =
+      weather.filter(_.rainMm >= 1.0).map(_.date).toSet
+
+    val rainyTrips =
+      completed(trips).filter(t => rainyDates.contains(t.date))
+
+    GenericQueries.frequencyBy(rainyTrips)(_.vehicleType)
+  }
+
+  // Obtenemos los dias con mas lluvia junto con sus viajes completados.
+  def rainiestDaysWithTrips(
+      trips: List[Trip],
+      weather: List[Weather],
+      n: Int
+  ): List[(Weather, Int)] = {
+
+    val tripsByDay = completedTripsByDay(trips)
+
+    weather
+      .sortBy(day => -day.rainMm)
+      .take(n)
+      .map(day => day -> tripsByDay.getOrElse(day.date, 0))
   }
 }
