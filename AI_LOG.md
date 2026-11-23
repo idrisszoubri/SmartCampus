@@ -115,3 +115,16 @@ Uso: Comprensión de la signatura paramétrica [A, K] y el uso de funciones de o
 Código afectado: `Queries.scala` y `GenericQueries.scala`.
 
 Verificación: Comprobamos que el algoritmo de topNBy servía tanto para tipados complejos (Trip) como para colecciones simples (String), reutilizando frequencyBy sin duplicar código.
+
+
+## Consulta 10
+
+Fecha: 21/11/2026
+
+Herramienta: ChatGPT
+
+Uso: Consultamos cómo representar una distancia ausente sin eliminar un viaje válido y cómo distinguir `Option[Trip]`, `Option[Double]` y `Option[Option[Double]]`.
+
+Código afectado: `Domain.scala`, `Parsers.scala` y `Queries.scala`.
+
+Verificación: Comprobamos mediante assert los casos de distancia conocida, distancia vacía y distancia no interpretable.
