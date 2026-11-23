@@ -22,6 +22,12 @@ object Parsers {
   private val Status = 9
   private val DataQuality = 10
 
+  // Guardamos los indices de weather.csv.
+  private val WeatherDate = 0
+  private val MeanTempC = 1
+  private val RainMm = 2
+  private val WindKmh = 3
+
   // Distinguimos una distancia vacia, una correcta y una incorrecta.
   private def optionalDistance(text: String): Option[Option[Double]] = {
 
@@ -92,11 +98,11 @@ object Parsers {
     if (row.length != 4) None
     else {
       for {
-        meanTemp <- SafeParse.toDoubleOption(row(1))
-        rain <- SafeParse.toDoubleOption(row(2))
-        wind <- SafeParse.toDoubleOption(row(3))
+        meanTemp <- SafeParse.toDoubleOption(row(MeanTempC))
+        rain <- SafeParse.toDoubleOption(row(RainMm))
+        wind <- SafeParse.toDoubleOption(row(WindKmh))
       } yield Weather(
-        row(0),
+        row(WeatherDate),
         meanTemp,
         rain,
         wind

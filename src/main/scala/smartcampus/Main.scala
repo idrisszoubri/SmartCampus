@@ -49,11 +49,13 @@ object Main {
       Weather("2026-10-04", 13.0, 0.0, 9.0)
     )
 
+    // Comprobamos que la media de viajes por clase de lluvia funciona correctamente.
     assert(
       Queries.averageTripsByRainClass(testTrips, testWeather) ==
         Map("rainy" -> 1.0, "dry" -> 0.5)
     )
 
+    // Comprobamos que la frecuencia de vehiculos en dias lluviosos funciona correctamente.
     assert(
       Queries.vehiclesOnRainyDays(testTrips, testWeather) ==
         Map("bike" -> 2)
@@ -62,6 +64,7 @@ object Main {
     // Mantenemos tambien una prueba de GenericQueries de F4.
     val words = List("sol", "mar", "casa", "perro")
 
+    // Comprobamos que la frecuencia de palabras por longitud funciona correctamente.
     assert(
       GenericQueries.frequencyBy(words)(_.length) ==
         Map(3 -> 2, 4 -> 1, 5 -> 1)
@@ -86,7 +89,7 @@ object Main {
 
     println("\nTop 3 estaciones de origen:")
 
-// Mostramos las tres estaciones de origen con mas viajes completados.
+    // Mostramos las tres estaciones de origen con mas viajes completados.
     Queries.topOrigins(trips, 3).foreach {
       case (id, count) =>
         val name = stationById.get(id).map(_.name).getOrElse("desconocida")

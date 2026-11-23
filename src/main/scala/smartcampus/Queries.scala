@@ -15,6 +15,7 @@ object Queries {
   // Calculamos la duracion media por tipo de usuario.
   def averageDurationByUser(trips: List[Trip]): Map[String, Double] = {
 
+    // Agrupamos los viajes completados por tipo de usuario y calculamos la media de duracion. 
     completed(trips).groupBy(_.userType).map {
       case (userType, userTrips) =>
         val durations = userTrips.map(_.durationMin)
@@ -44,6 +45,7 @@ object Queries {
   // Calculamos los ingresos de los viajes completados por dia.
   def revenueByDay(trips: List[Trip]): Map[String, Double] = {
 
+    // Agrupamos los viajes completados por fecha y sumamos los ingresos de cada dia.
     completed(trips).groupBy(_.date).map {
       case (date, dayTrips) =>
         date -> dayTrips.map(_.costEur).sum
@@ -82,6 +84,7 @@ object Queries {
   // Calculamos ingresos y numero de viajes completados con foldLeft.
   def revenueAndCount(trips: List[Trip]): (Double, Int) = {
 
+    // Reutilizamos completed para quedarnos con los viajes completados y sumamos ingresos y numero de viajes.
     completed(trips).foldLeft((0.0, 0)) {
       case ((revenue, count), trip) =>
         (revenue + trip.costEur, count + 1)
@@ -93,6 +96,7 @@ object Queries {
 
     val distances = completed(trips).flatMap(_.distanceKm)
 
+    // Si no hay distancias conocidas devolvemos None, si hay devolvemos la media.
     if (distances.isEmpty) None
     else Some(distances.sum / distances.size)
   }
@@ -108,8 +112,10 @@ object Queries {
       weather: List[Weather]
   ): Map[String, Double] = {
 
+    // Contamos los viajes completados por dia.
     val tripsByDay = completedTripsByDay(trips)
 
+    // Clasificamos los dias en lluviosos y secos y calculamos la media de viajes por cada clase.
     weather
       .map { day =>
         val rainClass = if (day.rainMm >= 1.0) "rainy" else "dry"
@@ -129,9 +135,11 @@ object Queries {
       weather: List[Weather]
   ): Map[String, Int] = {
 
+    // Filtramos los dias lluviosos y nos quedamos con sus fechas.
     val rainyDates =
       weather.filter(_.rainMm >= 1.0).map(_.date).toSet
 
+    // Filtramos los viajes completados que se realizaron en dias lluviosos.
     val rainyTrips =
       completed(trips).filter(t => rainyDates.contains(t.date))
 
@@ -147,6 +155,7 @@ object Queries {
 
     val tripsByDay = completedTripsByDay(trips)
 
+    // Ordenamos los dias por lluvia y nos quedamos con los n primeros, devolviendo la cantidad de viajes completados de cada dia.
     weather
       .sortBy(day => -day.rainMm)
       .take(n)
